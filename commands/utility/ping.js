@@ -1,4 +1,5 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
+const { sendPingEmbed } = require('./pingUtils'); // Importa la función compartida
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -8,13 +9,6 @@ module.exports = {
         const sent = await interaction.reply({ content: 'Pinging...', fetchReply: true, ephemeral: true });
         const latency = sent.createdTimestamp - interaction.createdTimestamp;
 
-        const pingEmbed = new EmbedBuilder()
-            .setColor(0x1a1a1a) // Color oscuro para Eclipse Studios
-            .setTitle('🌌 Pong! 🚀')
-            .setDescription(`Latencia del bot: **${latency}ms**\nLatencia de la API: **${Math.round(interaction.client.ws.ping)}ms**`)
-            .setTimestamp()
-            .setFooter({ text: 'Eclipse Bot', iconURL: interaction.client.user.displayAvatarURL() });
-
-        await interaction.editReply({ content: ' ', embeds: [pingEmbed], ephemeral: true });
+        await sendPingEmbed(interaction, latency); // Usa la función compartida
     },
 };

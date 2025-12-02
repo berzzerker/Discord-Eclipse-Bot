@@ -3,11 +3,16 @@ const path = require('node:path');
 require('dotenv').config();
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 
-// Crea una nueva instancia del cliente de Discord
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+// Define el prefijo para los comandos legacy
+const PREFIX = '!';
 
-// Colección para almacenar los comandos
+// Crea una nueva instancia del cliente de Discord
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessages] });
+
+// Colección para almacenar los comandos de barra
 client.commands = new Collection();
+// Colección para almacenar los comandos legacy (prefijo)
+client.legacyCommands = new Collection();
 
 // Carga los archivos de comandos
 const foldersPath = path.join(__dirname, 'commands');
@@ -19,11 +24,19 @@ for (const folder of commandFolders) {
 	for (const file of commandFiles) {
 		const filePath = path.join(commandsPath, file);
 		const command = require(filePath);
-		// Establece un nuevo elemento en la Collection con la clave como el nombre del comando y el valor como el módulo exportado
+		
+		// Carga comandos de barra
 		if ('data' in command && 'execute' in command) {
 			client.commands.set(command.data.name, command);
-		} else {
-			console.log(`[WARNING] El comando en ${filePath} no tiene las propiedades "data" o "execute" requeridas.`);
+		} 
+		// Carga comandos legacy
+		if ('legacy' in command && 'execute' in command) {
+			client.legacyCommands.set(command.legacy.name, command);
+		}
+		
+		// Advertencia si un archivo no es ni slash ni legacy
+		if (!('data' in command || 'legacy' in command) || !('execute' in command)) {
+			console.log(`[WARNING] El comando en ${filePath} no tiene las propiedades "data" o "legacy" y/o "execute" requeridas.`);
 		}
 	}
 }
@@ -55,6 +68,26 @@ client.on('interactionCreate', async interaction => {
         } else {
             await interaction.reply({ content: 'Hubo un error al ejecutar este comando. ¡Contacta a un administrador! 🐛', ephemeral: true });
         }
+    }
+});
+
+// Evento 'messageCreate': maneja los comandos legacy (prefijo)
+client.on('messageCreate', async message => {
+    // Ignora mensajes de bots y mensajes que no empiezan con el prefijo
+    if (message.author.bot || !message.content.startsWith(PREFIX)) return;
+
+    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+    const commandName = args.shift().toLowerCase();
+
+    const command = client.legacyCommands.get(commandName);
+
+    if (!command) return; // Si no es un comando legacy válido, ignorar
+
+    try {
+        await command.execute(message, args);
+    } catch (error) {
+        console.error(error);
+        message.reply('Hubo un error al ejecutar ese comando legacy. ¡Contacta a un administrador! 🐛');
     }
 });
 
