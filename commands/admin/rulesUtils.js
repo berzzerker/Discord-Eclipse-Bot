@@ -3,7 +3,7 @@ const { EmbedBuilder } = require('discord.js');
 function getRulesEmbed() {
     const rulesEmbed = new EmbedBuilder()
         .setColor(0x1a1a1a) // Color oscuro para Eclipse Studios
-        .setTitle('📜 Reglamento de Eclipse Studios 🌌')
+        .setTitle('📜 Reglamento de Eclipse Studios')
         .setDescription(
             `¡Bienvenido! Para mantener la armonía en nuestro Estudios y Comunidad, te pedimos que sigas estas simples reglas. Su incumplimiento podría llevar a consecuencias inevitables.\n\n` +
             `✨\n **Respeto y Convivencia**\n` +
@@ -18,8 +18,7 @@ function getRulesEmbed() {
             `Sigue las Directrices de Discord: Además de nuestras reglas, debes cumplir con los Términos de Servicio de Discord y las Directrices de la Comunidad.\n` +
             `Decisión del Staff: Las decisiones del equipo de Staff son finales. Si tienes alguna duda o problema, contacta a un <@1444386198121349311>.\n\n` +
             `💎\n **¡Disfruta tu Estancia!**\n` +
-            `Sé Activo y Diviértete: Participa, comparte tus ideas y disfruta de la comunidad. 🌠\n\n` +
-            // `Imagen` (Si hay una URL de imagen, se puede añadir aquí: .setImage('URL_DE_LA_IMAGEN_AQUI'))
+            `Sé Activo y Diviértete: Participa, comparte tus ideas y disfruta de la comunidad. 🌠\n\n`
         )
         .setFooter({ text: 'Al permanecer en este servidor, aceptas cumplir con estas reglas. Gracias por hacer de Eclipse Studios un lugar increíble.' })
         .setTimestamp();
