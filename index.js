@@ -60,3 +60,10 @@ client.on('interactionCreate', async interaction => {
 
 // Inicia sesión en Discord con el token de tu bot
 client.login(process.env.DISCORD_TOKEN);
+
+// Servidor HTTP simple para mantener el bot activo en Replit
+const http = require('http');
+http.createServer(function (req, res) {
+    res.write("Bot de Eclipse Studios está activo! 🌌");
+    res.end();
+}).listen(3000);
