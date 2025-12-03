@@ -3,98 +3,122 @@ const path = require('node:path');
 require('dotenv').config();
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 
-// Define el prefijo para los comandos legacy
+// --- Módulos de Roles ---
+// Se importan aquí para que el manejador de interacciones pueda usarlos.
+const divisionRoles = require('./commands/roles/division.js');
+const equipoRoles = require('./commands/roles/equipo.js');
+const notificacionesRoles = require('./commands/roles/notificaciones.js');
+// -------------------------
+
 const PREFIX = '!';
 
-// Crea una nueva instancia del cliente de Discord
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessages] });
 
-// Colección para almacenar los comandos de barra
 client.commands = new Collection();
-// Colección para almacenar los comandos legacy (prefijo)
 client.legacyCommands = new Collection();
 
-// Carga los archivos de comandos
 const foldersPath = path.join(__dirname, 'commands');
 const commandFolders = fs.readdirSync(foldersPath);
 
 for (const folder of commandFolders) {
-	const commandsPath = path.join(foldersPath, folder);
-	const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-	for (const file of commandFiles) {
-		const filePath = path.join(commandsPath, file);
-		const command = require(filePath);
-		
-		// Carga comandos de barra
-		if ('data' in command && 'execute' in command) {
-			client.commands.set(command.data.name, command);
-		} 
-		// Carga comandos legacy
-		if ('legacy' in command && 'execute' in command) {
-			client.legacyCommands.set(command.legacy.name, command);
-		}
-		
-		// Advertencia si un archivo no es ni slash ni legacy
-		if (!('data' in command || 'legacy' in command) || !('execute' in command)) {
-			console.log(`[WARNING] El comando en ${filePath} no tiene las propiedades "data" o "legacy" y/o "execute" requeridas.`);
-		}
-	}
+    const commandsPath = path.join(foldersPath, folder);
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+    for (const file of commandFiles) {
+        const filePath = path.join(commandsPath, file);
+        const command = require(filePath);
+
+        // CORRECCIÓN: Lógica de carga mejorada
+        // Si tiene 'data' y 'execute', es un comando de barra.
+        if ('data' in command && 'execute' in command) {
+            client.commands.set(command.data.name, command);
+        } 
+        // Si tiene 'name' y 'execute' pero NO 'data', es un comando de prefijo.
+        else if ('name' in command && 'execute' in command) {
+            client.legacyCommands.set(command.name, command);
+        } 
+        else {
+            console.log(`[WARNING] El comando en ${filePath} no es un comando válido (falta 'data'/'name' o 'execute').`);
+        }
+    }
 }
 
-// Evento 'ready': se ejecuta una vez cuando el bot inicia sesión
 client.once('ready', () => {
     console.log(`¡${client.user.tag} ha iniciado sesión y está listo! 🚀`);
 });
 
-// Evento 'interactionCreate': maneja las interacciones (comandos de barra)
+// --- MANEJADOR DE INTERACCIONES CORREGIDO ---
 client.on('interactionCreate', async interaction => {
-    // Si no es un comando de barra, ignóralo
-    if (!interaction.isChatInputCommand()) return;
-
-    // Busca el comando en la colección del cliente
-    const command = client.commands.get(interaction.commandName);
-
-    if (!command) {
-        console.error(`No se encontró ningún comando que coincida con ${interaction.commandName}.`);
-        return;
+    // Maneja Comandos de Barra
+    if (interaction.isChatInputCommand()) {
+        const command = client.commands.get(interaction.commandName);
+        if (!command) {
+            console.error(`No se encontró ningún comando de barra que coincida con ${interaction.commandName}.`);
+            return;
+        }
+        try {
+            await command.execute(interaction);
+        } catch (error) {
+            console.error(error);
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: 'Hubo un error al ejecutar este comando.', ephemeral: true });
+            } else {
+                await interaction.reply({ content: 'Hubo un error al ejecutar este comando.', ephemeral: true });
+            }
+        }
     }
-
-    try {
-        await command.execute(interaction);
-    } catch (error) {
-        console.error(error);
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: 'Hubo un error al ejecutar este comando. ¡Contacta a un administrador! 🐛', ephemeral: true });
-        } else {
-            await interaction.reply({ content: 'Hubo un error al ejecutar este comando. ¡Contacta a un administrador! 🐛', ephemeral: true });
+    // Maneja Botones
+    else if (interaction.isButton()) {
+        try {
+            if (interaction.customId === 'roles_divisiones_button') {
+                await divisionRoles.showMenu(interaction);
+            } else if (interaction.customId === 'roles_habilidades_button') {
+                await equipoRoles.showMenu(interaction);
+            } else if (interaction.customId === 'roles_notificaciones_button') {
+                await notificacionesRoles.showMenu(interaction);
+            }
+            // `roles_premium_button` se ignora por ahora
+        } catch (error) {
+            console.error('Error manejando botón:', error);
+            await interaction.reply({ content: 'Hubo un error al procesar esta acción.', ephemeral: true });
+        }
+    }
+    // Maneja Menús Desplegables
+    else if (interaction.isStringSelectMenu()) {
+        try {
+            if (interaction.customId === 'select_division_role') {
+                await divisionRoles.handleSelect(interaction);
+            } else if (interaction.customId === 'select_habilidades_roles') {
+                await equipoRoles.handleSelect(interaction);
+            } else if (interaction.customId === 'select_notificaciones_roles') {
+                await notificacionesRoles.handleSelect(interaction);
+            }
+        } catch (error) {
+            console.error('Error manejando menú de selección:', error);
+            await interaction.update({ content: 'Hubo un error al actualizar tus roles.', components: [], ephemeral: true });
         }
     }
 });
+// -----------------------------------------
 
-// Evento 'messageCreate': maneja los comandos legacy (prefijo)
 client.on('messageCreate', async message => {
-    // Ignora mensajes de bots y mensajes que no empiezan con el prefijo
     if (message.author.bot || !message.content.startsWith(PREFIX)) return;
 
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
     const commandName = args.shift().toLowerCase();
 
     const command = client.legacyCommands.get(commandName);
-
-    if (!command) return; // Si no es un comando legacy válido, ignorar
+    if (!command) return;
 
     try {
         await command.execute(message, args);
     } catch (error) {
         console.error(error);
-        message.reply('Hubo un error al ejecutar ese comando legacy. ¡Contacta a un administrador! 🐛');
+        message.reply('Hubo un error al ejecutar ese comando.');
     }
 });
 
-// Inicia sesión en Discord con el token de tu bot
 client.login(process.env.DISCORD_TOKEN);
 
-// Servidor HTTP simple para mantener el bot activo en Replit
 const http = require('http');
 http.createServer(function (req, res) {
     res.write("Bot de Eclipse Studios está activo! 🌌");
