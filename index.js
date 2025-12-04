@@ -187,6 +187,21 @@ client.on('interactionCreate', async interaction => {
                     await channel.messages.delete(closingInfo.closeMsgId).catch(console.error);
                     await interaction.reply({ content: '✅ Cierre de ticket cancelado.', ephemeral: true });
                 }
+            } else if (customId === 'ticket_claim') {
+                if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+                    return interaction.reply({ content: '❌ Solo los miembros del staff pueden reclamar tickets.', ephemeral: true });
+                }
+                await interaction.deferUpdate();
+                
+                const originalRow = ActionRowBuilder.from(interaction.message.components[0]);
+                const claimButton = originalRow.components.find(comp => comp.data.custom_id === 'ticket_claim');
+                
+                claimButton.setDisabled(true).setLabel('Reclamado').setStyle(ButtonStyle.Secondary);
+                
+                await interaction.message.edit({ components: [originalRow] });
+
+                await channel.send({ content: `👑 Este ticket ha sido reclamado por ${user}.` });
+
             } else if (customId === 'ticket_add_user' || customId === 'ticket_remove_user') {
                 await interaction.reply({ content: 'Esta función está disponible vía comandos de barra: `/ticket add` y `/ticket remove`.', ephemeral: true });
             } else if (customId === 'roles_divisiones_button') {
