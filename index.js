@@ -301,7 +301,7 @@ client.on('guildMemberAdd', async member => {
         const welcomeEmbed = new EmbedBuilder()
             .setColor(0x1a1a1a)
             .setTitle(`¡Bienvenido/a a Eclipse Studios, ${member.user.username}!`)
-            .setDescription(`¡Esperamos que disfrutes de tu estancia en nuestro universo! 🌌\n\nNo dudes en explorar los canales y presentarte a la comunidad.`)
+            .setDescription(`¡Esperamos que disfrutes de tu estancia! \n\nNo dudes en explorar los canales y presentarte a la comunidad.`)
             .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
             .setFooter({ text: 'Eclipse Studios', iconURL: member.guild.iconURL({ dynamic: true }) })
             .setTimestamp();
@@ -317,6 +317,6 @@ client.login(process.env.DISCORD_TOKEN);
 
 const http = require('http');
 http.createServer(function (req, res) {
-    res.write("Bot de Eclipse Studios está activo! 🌌");
+    res.write("Bot de Eclipse Studios está activo! ⚡");
     res.end();
 }).listen(3000);
