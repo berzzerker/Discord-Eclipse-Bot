@@ -14,7 +14,7 @@ const notificacionesRoles = require('./commands/roles/notificaciones.js');
 
 const PREFIX = '!';
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessages] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildMembers] });
 
 client.commands = new Collection();
 client.legacyCommands = new Collection();
@@ -265,6 +265,27 @@ client.on('messageCreate', async message => {
     } catch (error) {
         console.error(error);
         message.reply('Hubo un error al ejecutar ese comando.');
+    }
+});
+
+// --- EVENTO GUILDMEMBERADD ---
+client.on('guildMemberAdd', async member => {
+    console.log(`El usuario ${member.user.tag} (${member.id}) se ha unido al servidor.`);
+    
+    const autoRoleIds = [
+        '1444381145381732463', // Staff
+        '1444381602112208936', // Division
+        '1444540436952780840', // Equipo
+        '1444382035882803350', // Sub-Roles y Rangos
+        '1444385828871868416', // Comunidad
+        '1444387882373615839'  // Notificaciones
+    ];
+
+    try {
+        await member.roles.add(autoRoleIds);
+        console.log(`Roles de división añadidos a ${member.user.tag}.`);
+    } catch (error) {
+        console.error(`No se pudieron añadir los roles automáticos a ${member.user.tag}:`, error);
     }
 });
 
