@@ -273,7 +273,7 @@ client.on('guildMemberAdd', async member => {
     console.log(`El usuario ${member.user.tag} (${member.id}) se ha unido al servidor.`);
     
     const autoRoleIds = [
-        '1444381145381732463', // Staff
+        // '1444381145381732463', // Staff -> Eliminado para evitar problemas de jerarquía
         '1444381602112208936', // Division
         '1444540436952780840', // Equipo
         '1444382035882803350', // Sub-Roles y Rangos
