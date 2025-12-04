@@ -1,7 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 
 // DEBES REEMPLAZAR ESTE ID CON EL ID REAL DE TU ROL DE STAFF
-const STAFF_ROLE_ID = 'ID_DEL_ROL_STAFF';
+const STAFF_ROLE_ID = '1444386198121349311';
 
 function getRulesEmbed() {
     const rulesDescription = [
