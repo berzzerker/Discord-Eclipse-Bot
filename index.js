@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 require('dotenv').config();
-const { Client, Collection, GatewayIntentBits, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
+const { Client, Collection, GatewayIntentBits, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { createTicketChannel } = require('./utils/ticket-creation.js');
 const { logTicketClosure } = require('./utils/ticket-logging.js');
 const { TICKET_CATEGORY_ID } = require('./commands/tickets/ticket.js');
@@ -272,6 +272,7 @@ client.on('messageCreate', async message => {
 client.on('guildMemberAdd', async member => {
     console.log(`El usuario ${member.user.tag} (${member.id}) se ha unido al servidor.`);
     
+    // --- Asignación de Roles Automática ---
     const autoRoleIds = [
         // '1444381145381732463', // Staff -> Eliminado para evitar problemas de jerarquía
         '1444381602112208936', // Division
@@ -286,6 +287,29 @@ client.on('guildMemberAdd', async member => {
         console.log(`Roles de división añadidos a ${member.user.tag}.`);
     } catch (error) {
         console.error(`No se pudieron añadir los roles automáticos a ${member.user.tag}:`, error);
+    }
+
+    // --- Mensaje de Bienvenida ---
+    const welcomeChannelId = '1444272323351023636';
+    try {
+        const welcomeChannel = await member.guild.channels.fetch(welcomeChannelId);
+        if (!welcomeChannel || !welcomeChannel.isTextBased()) {
+            console.log(`[Welcome Msg] Canal de bienvenida no encontrado o no es de texto.`);
+            return;
+        }
+
+        const welcomeEmbed = new EmbedBuilder()
+            .setColor(0x1a1a1a)
+            .setTitle(`¡Bienvenido/a a Eclipse Studios, ${member.user.username}!`)
+            .setDescription(`¡Esperamos que disfrutes de tu estancia en nuestro universo! 🌌\n\nNo dudes en explorar los canales y presentarte a la comunidad.`)
+            .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+            .setFooter({ text: 'Eclipse Studios', iconURL: member.guild.iconURL({ dynamic: true }) })
+            .setTimestamp();
+
+        await welcomeChannel.send({ embeds: [welcomeEmbed] });
+        console.log(`Mensaje de bienvenida enviado para ${member.user.tag}.`);
+    } catch (error) {
+        console.error(`No se pudo enviar el mensaje de bienvenida:`, error);
     }
 });
 
