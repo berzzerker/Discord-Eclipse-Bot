@@ -1,0 +1,16 @@
+| Categoría | Comando | Descripción | Opciones y Subcomandos | Permisos Requeridos |
+| :--- | :--- | :--- | :--- | :--- |
+| **admin** | `/setrules` | Publica el embed con las reglas del servidor. | `- **canal**: *El canal donde se publicarán las reglas. Por defecto, el canal actual.* (Opcional)` | `Administrator` |
+| **moderation** | `/nuke` | Elimina mensajes del canal. | `- **cantidad**: *Número de mensajes recientes a eliminar (1-99).* (Opcional)`<br>`- **todo**: *Elimina todos los mensajes posibles (hasta 99) dentro de los últimos 14 días.* (Opcional)` | `ManageMessages` |
+| **roles** | `/roles` | Abre el panel para la autogestión de roles de Eclipse Studios. | Ninguna | Ninguno |
+| **tickets** | `/ticket` | Comandos para el sistema de tickets. | **`/ticket channelsetup`**: Configura un panel para abrir tickets en un canal específico.<br>  `- **canal**: *El canal donde se enviará el panel de tickets.* (Requerido)<br>  `- **tipo**: *El tipo de panel de tickets a configurar.* (Requerido)<br><br>**`/ticket close`**: Inicia el proceso para cerrar el ticket actual.<br><br>**`/ticket add`**: Añade un usuario a este ticket.<br>  `- **usuario**: *El usuario a añadir.* (Requerido)<br><br>**`/ticket remove`**: Quita un usuario de este ticket.<br>  `- **usuario**: *El usuario a quitar.* (Requerido)<br><br>**`/ticket rename`**: Renombra el ticket actual.<br>  `- **nuevo_nombre**: *El nuevo nombre para el canal del ticket.* (Requerido)` | `ManageChannels` |
+| **utility** | `/ping` | Responde con Pong! y muestra la latencia del bot. | Ninguna | Ninguno |
+| **utility**| `/staff` | Muestra el staff actual de Eclipse Studios. | Ninguna | Ninguno |
+
+**Notas Adicionales:**
+*   Los archivos `division.js`, `equipo.js` y `notificaciones.js` no son comandos de barra directos, sino que manejan las interacciones de los botones del comando `/roles`.
+*   He omitido los archivos `_legacy.js` y `Utils.js` ya que no son comandos activos.
+*   El bot envía un **mensaje de bienvenida** con un embed personalizado cuando un nuevo usuario se une al servidor.
+*   Al unirse, los nuevos miembros reciben un **conjunto de roles automáticos** que actúan como separadores de categorías.
+*   Existe un sistema de **comandos legacy** que se activan con el prefijo `!`. Estos comandos están definidos en los archivos `_legacy.js`.
+*   El **sistema de tickets** incluye mecánicas adicionales como cooldowns, un proceso de cierre cancelable con temporizador, y la capacidad para el staff de reclamar tickets.
