@@ -122,7 +122,8 @@ async function handleAddWarning(interaction) {
             .addFields(
                 { name: '👤 Usuario', value: `${targetUser} (${targetUser.tag})`},
                 { name: '🛠 Moderador', value: `${staffMember} (${staffMember.tag})`},
-                { name: '📄 Razón', value: reason }
+                { name: '📄 Razón', value: reason },
+                { name: '🆔 ID Advertencia', value: `\`${newWarning.id}\`` }
             )
             .setTimestamp();
         if (proof) {

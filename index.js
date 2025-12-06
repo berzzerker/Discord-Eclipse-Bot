@@ -10,7 +10,6 @@ const { TICKET_CATEGORY_ID } = require('./commands/tickets/ticket.js');
 const divisionRoles = require('./commands/roles/division.js');
 const equipoRoles = require('./commands/roles/equipo.js');
 const notificacionesRoles = require('./commands/roles/notificaciones.js');
-const muteScheduler = require('./utils/mute-scheduler.js');
 // -------------------------
 
 const PREFIX = '!';
@@ -48,7 +47,6 @@ for (const folder of commandFolders) {
 
 client.once('ready', () => {
     console.log(`¡${client.user.tag} ha iniciado sesión y está listo! 🚀`);
-    muteScheduler.start(client);
 });
 
 
