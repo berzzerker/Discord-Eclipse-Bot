@@ -1,14 +1,15 @@
 const chalk = require('chalk');
+console.log('Chalk module from Replit:', chalk);
 
 const logger = {
     info: (message) => {
-        console.log(chalk.default.blue(`[INFO] ${message}`));
+        console.log(chalk.blue(`[INFO] ${message}`));
     },
     warn: (message) => {
-        console.log(chalk.default.yellow(`[WARN] ${message}`));
+        console.log(chalk.yellow(`[WARN] ${message}`));
     },
     error: (message, error) => {
-        console.error(chalk.default.red(`[ERROR] ${message}`));
+        console.error(chalk.red(`[ERROR] ${message}`));
         if (error) {
             console.error(error);
         }
