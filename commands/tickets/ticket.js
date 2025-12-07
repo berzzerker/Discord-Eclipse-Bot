@@ -1,11 +1,10 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits } = require('discord.js');
-const { logTicketClosure } = require('../../utils/ticket-logging.js');
-const logger = require('../../utils/logger.js');
-const { TICKET_LOG_CHANNEL_ID, TICKET_CATEGORY_ID } = require('../../config.js');
 
 // --- Configuración ---
 // ¡IMPORTANTE! Reemplaza estos IDs con los de tu servidor.
 const STAFF_ROLE_ID = '1444386198121349311';
+const TICKET_CATEGORY_ID = '1445853625334108221';
+const TICKET_LOG_CHANNEL_ID = '1445853625334108222'; // Canal para logs de tickets
 // --------------------
 
 // Objeto para almacenar los detalles de cada panel de tickets
@@ -47,73 +46,6 @@ const ticketPanels = {
     }
 };
 
-// --- LÓGICA DE CIERRE DE TICKET ---
-async function startTicketClosure(interaction, client) {
-    const { channel, member, user: closerUser } = interaction;
-
-    if (channel.parentId !== TICKET_CATEGORY_ID) {
-        return interaction.reply({ content: '❌ Este comando solo puede usarse en un canal de ticket.', ephemeral: true });
-    }
-    if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-        return interaction.reply({ content: '❌ No tienes permisos para cerrar este ticket.', ephemeral: true });
-    }
-    if (client.closingTickets.has(channel.id)) {
-        return interaction.reply({ content: 'Este ticket ya está en proceso de cierre.', ephemeral: true });
-    }
-
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId('ticket_close_cancel')
-            .setLabel('Cancelar Cierre')
-            .setStyle(ButtonStyle.Secondary)
-    );
-
-    const closeMsg = await channel.send({
-        content: `⚠️ Ticket marcado para cierre por ${interaction.user}. Este canal se eliminará en 10 segundos...`,
-        components: [row]
-    });
-
-    const timeoutId = setTimeout(async () => {
-        client.closingTickets.delete(channel.id);
-
-        // --- LOGGING Y TRANSCRIPCIÓN ---
-        await logTicketClosure(client, channel, closerUser);
-
-        const topic = channel.topic;
-        if (topic && topic.includes('Ticket de')) {
-            const userIdMatch = topic.match(/\((\d{17,19})\)/);
-            if (userIdMatch && userIdMatch[1]) {
-                const userId = userIdMatch[1];
-                client.openTickets.delete(userId);
-                logger.info(`[Ticket System] Usuario ${userId} eliminado de la lista de tickets abiertos.`);
-            }
-        }
-
-        await channel.delete('Cierre de ticket completado.');
-
-    }, 10000); // 10 segundos
-
-    client.closingTickets.set(channel.id, { timeoutId, closeMsgId: closeMsg.id });
-    await interaction.reply({ content: '¡El proceso de cierre ha comenzado!', ephemeral: true });
-}
-
-async function handleTicketButton(interaction, client) {
-    const { customId, channel } = interaction;
-
-    if (customId === 'ticket_close_start') {
-        await startTicketClosure(interaction, client);
-    } else if (customId === 'ticket_close_cancel') {
-        const closingInfo = client.closingTickets.get(channel.id);
-        if (closingInfo) {
-            clearTimeout(closingInfo.timeoutId);
-            client.closingTickets.delete(channel.id);
-            await channel.messages.delete(closingInfo.closeMsgId).catch(error => logger.error('Error eliminando mensaje de cierre de ticket', error));
-            await interaction.reply({ content: '✅ Cierre de ticket cancelado.', ephemeral: true });
-        }
-    }
-}
-
-
 module.exports = {
     STAFF_ROLE_ID,
     TICKET_CATEGORY_ID,
@@ -153,7 +85,7 @@ module.exports = {
             subcommand
                 .setName('add')
                 .setDescription('Añade un usuario a este ticket.')
-                .addUserOption(option =>
+                .addUserOption(option => 
                     option.setName('usuario')
                         .setDescription('El usuario a añadir.')
                         .setRequired(true))
@@ -180,12 +112,12 @@ module.exports = {
 
     async execute(interaction) {
         if (!interaction.isChatInputCommand()) return;
-        const { client } = interaction;
+
         const subcommand = interaction.options.getSubcommand();
 
         if (subcommand === 'channelsetup') {
             if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-                return interaction.reply({ content: '❌ Solo los administradores pueden usar este comando.', ephemeral: true });
+                 return interaction.reply({ content: '❌ Solo los administradores pueden usar este comando.', ephemeral: true });
             }
             const targetChannel = interaction.options.getChannel('canal');
             const ticketType = interaction.options.getString('tipo');
@@ -198,7 +130,7 @@ module.exports = {
             if (!targetChannel.permissionsFor(interaction.client.user).has([PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.ViewChannel])) {
                 return interaction.reply({ content: `❌ No tengo permisos para ver o enviar mensajes y embeds en ${targetChannel}.`, ephemeral: true });
             }
-
+            
             const embed = new EmbedBuilder()
                 .setColor(0x1a1a1a)
                 .setTitle(panelInfo.title)
@@ -223,9 +155,7 @@ module.exports = {
                 console.error('Error al configurar el panel de tickets:', error);
                 await interaction.reply({ content: '❌ Hubo un error al enviar el mensaje al canal seleccionado.', ephemeral: true });
             }
-        } else if (subcommand === 'close') {
-            await startTicketClosure(interaction, client);
         }
+        // La lógica para 'close', 'add', 'remove' y 'rename' se centralizará en index.js
     },
-    handleButton: handleTicketButton,
 };

@@ -1,10 +1,9 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('roles')
-        .setDescription('Abre el panel para la autogestión de roles de Eclipse Studios.')
-        .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages),
+        .setDescription('Abre el panel para la autogestión de roles de Eclipse Studios.'),
     async execute(interaction) {
         const embed = new EmbedBuilder()
             .setColor(0x1a1a1a) // Color negro #1a1a1a

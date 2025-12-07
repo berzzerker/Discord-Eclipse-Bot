@@ -2,19 +2,14 @@ const fs = require('node:fs');
 const path = require('node:path');
 require('dotenv').config();
 const { Client, Collection, GatewayIntentBits, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const logger = require('./utils/logger');
 const { createTicketChannel } = require('./utils/ticket-creation.js');
 const { logTicketClosure } = require('./utils/ticket-logging.js');
-const { readJSON, writeJSON } = require('./utils/jsonHandler.js');
-const { TICKET_CATEGORY_ID, SUGGESTION_CHANNEL_ID } = require('./config.js');
+const { TICKET_CATEGORY_ID } = require('./commands/tickets/ticket.js');
 
 // --- Módulos de Roles ---
 const divisionRoles = require('./commands/roles/division.js');
 const equipoRoles = require('./commands/roles/equipo.js');
 const notificacionesRoles = require('./commands/roles/notificaciones.js');
-
-// --- Handlers ---
-const { handleSuggestionVote, handleSuggestionAction } = require('./handlers/suggestionHandler.js');
 // -------------------------
 
 const PREFIX = '!';
@@ -33,43 +28,82 @@ const commandFolders = fs.readdirSync(foldersPath);
 
 for (const folder of commandFolders) {
     const commandsPath = path.join(foldersPath, folder);
-    // Recursive search for command files
-    const allFiles = fs.readdirSync(commandsPath, { withFileTypes: true });
-    const commandFiles = allFiles
-        .filter(dirent => dirent.isFile() && dirent.name.endsWith('.js'))
-        .map(dirent => dirent.name);
-
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
-        try {
-            const command = require(filePath);
-            if ('data' in command && 'execute' in command) {
-                client.commands.set(command.data.name, command);
-            }
-            else if ('name' in command && 'execute' in command) {
-                client.legacyCommands.set(command.name, command);
-            }
-            else {
-                 logger.warn(`El comando en ${filePath} no tiene las propiedades "data" o "execute" requeridas.`);
-            }
-        } catch (error) {
-            logger.error(`Error cargando el comando en ${filePath}:`, error);
+        const command = require(filePath);
+
+        if ('data' in command && 'execute' in command) {
+            client.commands.set(command.data.name, command);
+        }
+        else if ('name' in command && 'execute' in command) {
+            client.legacyCommands.set(command.name, command);
+        }
+        else {
+            console.log(`[WARNING] El comando en ${filePath} no es un comando válido (falta 'data'/'name' o 'execute').`);
         }
     }
 }
 
-
 client.once('ready', () => {
-    logger.info(`¡${client.user.tag} ha iniciado sesión y está listo! 🚀`);
+    console.log(`¡${client.user.tag} ha iniciado sesión y está listo! 🚀`);
 });
 
 
+// --- LÓGICA DE CIERRE DE TICKET ---
+async function startTicketClosure(interaction) {
+    const { channel, member, user: closerUser } = interaction;
 
+    if (channel.parentId !== TICKET_CATEGORY_ID) {
+        return interaction.reply({ content: '❌ Este comando solo puede usarse en un canal de ticket.', ephemeral: true });
+    }
+    if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+        return interaction.reply({ content: '❌ No tienes permisos para cerrar este ticket.', ephemeral: true });
+    }
+    if (client.closingTickets.has(channel.id)) {
+        return interaction.reply({ content: 'Este ticket ya está en proceso de cierre.', ephemeral: true });
+    }
+
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('ticket_close_cancel')
+            .setLabel('Cancelar Cierre')
+            .setStyle(ButtonStyle.Secondary)
+    );
+
+    const closeMsg = await channel.send({ 
+        content: `⚠️ Ticket marcado para cierre por ${interaction.user}. Este canal se eliminará en 10 segundos...`,
+        components: [row]
+    });
+
+    const timeoutId = setTimeout(async () => {
+        client.closingTickets.delete(channel.id);
+        
+        // --- LOGGING Y TRANSCRIPCIÓN ---
+        await logTicketClosure(client, channel, closerUser);
+
+        const topic = channel.topic;
+        if (topic && topic.includes('Ticket de')) {
+            const userIdMatch = topic.match(/\((\d{17,19})\)/);
+            if (userIdMatch && userIdMatch[1]) {
+                const userId = userIdMatch[1];
+                client.openTickets.delete(userId);
+                console.log(`[Ticket System] Usuario ${userId} eliminado de la lista de tickets abiertos.`);
+            }
+        }
+        
+        await channel.delete('Cierre de ticket completado.');
+
+    }, 10000); // 10 segundos
+
+    client.closingTickets.set(channel.id, { timeoutId, closeMsgId: closeMsg.id });
+    await interaction.reply({ content: '¡El proceso de cierre ha comenzado!', ephemeral: true });
+}
 
 
 // --- MANEJADOR DE INTERACCIONES ---
 client.on('interactionCreate', async interaction => {
-    const { user, channel, member, client } = interaction;
+    const { user, channel, member } = interaction;
 
     // Maneja Comandos de Barra
     if (interaction.isChatInputCommand()) {
@@ -77,9 +111,40 @@ client.on('interactionCreate', async interaction => {
         if (!command) return;
 
         try {
-            await command.execute(interaction);
+            if (interaction.commandName === 'ticket') {
+                const subcommand = interaction.options.getSubcommand();
+                
+                if (['close', 'add', 'remove', 'rename'].includes(subcommand)) {
+                    if (channel.parentId !== TICKET_CATEGORY_ID) {
+                        return interaction.reply({ content: '❌ Este comando solo puede usarse en un canal de ticket.', ephemeral: true });
+                    }
+                    if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+                        return interaction.reply({ content: '❌ No tienes permisos para gestionar este ticket.', ephemeral: true });
+                    }
+                }
+
+                if (subcommand === 'close') {
+                    await startTicketClosure(interaction);
+                } else if (subcommand === 'add') {
+                    const targetUser = interaction.options.getUser('usuario');
+                    await channel.permissionOverwrites.edit(targetUser.id, { ViewChannel: true, SendMessages: true });
+                    await interaction.reply({ content: `✅ Se ha añadido a ${targetUser} al ticket.`, ephemeral: true });
+                } else if (subcommand === 'remove') {
+                    const targetUser = interaction.options.getUser('usuario');
+                    await channel.permissionOverwrites.delete(targetUser.id);
+                    await interaction.reply({ content: `✅ Se ha quitado a ${targetUser} del ticket.`, ephemeral: true });
+                } else if (subcommand === 'rename') {
+                    const newName = interaction.options.getString('nuevo_nombre');
+                    await channel.setName(newName);
+                    await interaction.reply({ content: `✅ El ticket ha sido renombrado a \`${newName}\`.`, ephemeral: true });
+                } else {
+                     await command.execute(interaction);
+                }
+            } else {
+                await command.execute(interaction);
+            }
         } catch (error) {
-            logger.error('Error ejecutando comando:', error);
+            console.error('Error ejecutando comando:', error);
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ content: 'Hubo un error al ejecutar este comando.', ephemeral: true });
             } else {
@@ -92,12 +157,7 @@ client.on('interactionCreate', async interaction => {
         try {
             const customId = interaction.customId;
 
-            if (customId.startsWith('ticket_')) {
-                const command = client.commands.get('ticket');
-                if (command && command.handleButton) {
-                    await command.handleButton(interaction, client);
-                }
-            } else if (customId.startsWith('ticket_open_')) {
+            if (customId.startsWith('ticket_open_')) {
                 if (client.openTickets.has(user.id)) return interaction.reply({ content: '❌ Ya tienes un ticket abierto.', ephemeral: true });
                 if (client.ticketCooldowns.has(user.id)) return interaction.reply({ content: '⏳ Debes esperar un poco antes de abrir otro ticket.', ephemeral: true });
 
@@ -117,8 +177,18 @@ client.on('interactionCreate', async interaction => {
                         await interaction.editReply({ content: `✅ ¡Tu ticket ha sido creado en ${newChannel}!` });
                     }
                 }
+            } else if (customId === 'ticket_close_start') {
+                await startTicketClosure(interaction);
+            } else if (customId === 'ticket_close_cancel') {
+                const closingInfo = client.closingTickets.get(channel.id);
+                if (closingInfo) {
+                    clearTimeout(closingInfo.timeoutId);
+                    client.closingTickets.delete(channel.id);
+                    await channel.messages.delete(closingInfo.closeMsgId).catch(console.error);
+                    await interaction.reply({ content: '✅ Cierre de ticket cancelado.', ephemeral: true });
+                }
             } else if (customId === 'ticket_claim') {
-                 if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+                if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
                     return interaction.reply({ content: '❌ Solo los miembros del staff pueden reclamar tickets.', ephemeral: true });
                 }
                 await interaction.deferUpdate();
@@ -131,18 +201,18 @@ client.on('interactionCreate', async interaction => {
                 await interaction.message.edit({ components: [originalRow] });
 
                 await channel.send({ content: `👑 Este ticket ha sido reclamado por ${user}.` });
-            }
-             else if (customId === 'roles_divisiones_button') {
+
+            } else if (customId === 'ticket_add_user' || customId === 'ticket_remove_user') {
+                await interaction.reply({ content: 'Esta función está disponible vía comandos de barra: `/ticket add` y `/ticket remove`.', ephemeral: true });
+            } else if (customId === 'roles_divisiones_button') {
                 await divisionRoles.showMenu(interaction);
             } else if (customId === 'roles_habilidades_button') {
                 await equipoRoles.showMenu(interaction);
-            } else if (customId.startsWith('suggestion_upvote_') || customId.startsWith('suggestion_downvote_')) {
-                await handleSuggestionVote(interaction);
-            } else if (customId.startsWith('suggestion_approve_') || customId.startsWith('suggestion_reject_')) {
-                await handleSuggestionAction(interaction);
+            } else if (customId === 'roles_notificaciones_button') {
+                await notificacionesRoles.showMenu(interaction);
             }
         } catch (error) {
-            logger.error('Error manejando botón:', error);
+            console.error('Error manejando botón:', error);
             if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: 'Hubo un error al procesar esta acción.', ephemeral: true });
             else await interaction.followUp({ content: 'Hubo un error al procesar esta acción.', ephemeral: true });
         }
@@ -154,7 +224,7 @@ client.on('interactionCreate', async interaction => {
             else if (interaction.customId === 'select_habilidades_roles') await equipoRoles.handleSelect(interaction);
             else if (interaction.customId === 'select_notificaciones_roles') await notificacionesRoles.handleSelect(interaction);
         } catch (error) {
-            logger.error('Error manejando menú de selección:', error);
+            console.error('Error manejando menú de selección:', error);
             await interaction.update({ content: 'Hubo un error al actualizar tus roles.', components: [], ephemeral: true });
         }
     }
@@ -162,80 +232,24 @@ client.on('interactionCreate', async interaction => {
     else if (interaction.isModalSubmit()) {
         try {
             if (interaction.customId === 'ticket_modal_general') {
-                // (Logic for ticket modal remains here)
-            }
-            
-            // --- LÓGICA DE CREACIÓN DE SUGERENCIA ---
-            if (interaction.customId === 'suggestion_create_modal') {
-                await interaction.deferReply({ ephemeral: true });
-
-                const title = interaction.fields.getTextInputValue('suggestion_title');
-                const description = interaction.fields.getTextInputValue('suggestion_description');
+                if (client.openTickets.has(user.id)) return interaction.reply({ content: '❌ Ya tienes un ticket abierto.', ephemeral: true });
+                if (client.ticketCooldowns.has(user.id)) return interaction.reply({ content: '⏳ Debes esperar un poco antes de abrir otro ticket.', ephemeral: true });
                 
-                const suggestionsData = readJSON('suggestions.json');
-                const newSuggestionId = suggestionsData.counter + 1;
-                const paddedId = String(newSuggestionId).padStart(4, '0');
+                await interaction.deferReply({ ephemeral: true });
+                const reason = interaction.fields.getTextInputValue('ticket_reason');
+                const newChannel = await createTicketChannel(interaction, 'general', reason);
 
-                const suggestionEmbed = new EmbedBuilder()
-                    .setColor(0x1a1a1a)
-                    .setTitle(`Sugerencia #${paddedId} – ${title}`)
-                    .setAuthor({ name: `Sugerencia de ${interaction.user.username}`, iconURL: interaction.user.displayAvatarURL() })
-                    .setDescription(description)
-                    .setTimestamp()
-                    .setFooter({ text: `ID: ${paddedId}` });
-
-                const row = new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`suggestion_upvote_${newSuggestionId}`)
-                            .setLabel('A Favor (0)')
-                            .setStyle(ButtonStyle.Success)
-                            .setEmoji('✅'),
-                        new ButtonBuilder()
-                            .setCustomId(`suggestion_downvote_${newSuggestionId}`)
-                            .setLabel('En Contra (0)')
-                            .setStyle(ButtonStyle.Danger)
-                            .setEmoji('❌')
-                    );
-
-                const suggestionChannel = await client.channels.fetch(SUGGESTION_CHANNEL_ID);
-                const message = await suggestionChannel.send({ embeds: [suggestionEmbed], components: [row] });
-
-                // --- Guardar Datos ---
-                suggestionsData.counter = newSuggestionId;
-                suggestionsData.suggestions[newSuggestionId] = {
-                    messageId: message.id,
-                    channelId: message.channel.id, // Added channelId
-                    authorId: interaction.user.id,
-                    title: title,
-                    description: description,
-                    status: 'pendiente',
-                    votes: {
-                        up: [],
-                        down: []
-                    }
-                };
-                writeJSON('suggestions.json', suggestionsData);
-
-                const userSuggestionsData = readJSON('user_suggestions.json');
-                if (!userSuggestionsData[interaction.user.id]) {
-                    userSuggestionsData[interaction.user.id] = { lastSuggestion: 0, active: 0 };
+                if (newChannel) {
+                    client.openTickets.add(user.id);
+                    client.ticketCooldowns.add(user.id);
+                    setTimeout(() => client.ticketCooldowns.delete(user.id), 120000);
+                    await interaction.editReply({ content: `✅ ¡Tu ticket ha sido creado en ${newChannel}!` });
                 }
-                userSuggestionsData[interaction.user.id].lastSuggestion = Date.now();
-                userSuggestionsData[interaction.user.id].active += 1;
-                writeJSON('user_suggestions.json', userSuggestionsData);
-
-                await interaction.editReply({
-                    content: `¡Tu sugerencia **#${paddedId}** ha sido enviada correctamente en ${suggestionChannel}!`,
-                });
             }
         } catch (error) {
-            logger.error('Error manejando modal:', error);
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: 'Hubo un error al procesar tu solicitud.', ephemeral: true });
-            } else {
-                await interaction.reply({ content: 'Hubo un error al procesar tu solicitud.', ephemeral: true });
-            }
+            console.error('Error manejando modal:', error);
+            if (!interaction.replied && !interaction.deferred) await interaction.reply({ content: 'Hubo un error al procesar tu solicitud.', ephemeral: true });
+            else await interaction.followUp({ content: 'Hubo un error al procesar tu solicitud.', ephemeral: true });
         }
     }
 });
@@ -249,14 +263,14 @@ client.on('messageCreate', async message => {
     try {
         await command.execute(message, args);
     } catch (error) {
-        logger.error(`Error ejecutando el comando '${commandName}':`, error);
+        console.error(error);
         message.reply('Hubo un error al ejecutar ese comando.');
     }
 });
 
 // --- EVENTO GUILDMEMBERADD ---
 client.on('guildMemberAdd', async member => {
-    logger.info(`El usuario ${member.user.tag} (${member.id}) se ha unido al servidor.`);
+    console.log(`El usuario ${member.user.tag} (${member.id}) se ha unido al servidor.`);
     
     // --- Asignación de Roles Automática ---
     const autoRoleIds = [
@@ -270,9 +284,9 @@ client.on('guildMemberAdd', async member => {
 
     try {
         await member.roles.add(autoRoleIds);
-        logger.info(`Roles de división añadidos a ${member.user.tag}.`);
+        console.log(`Roles de división añadidos a ${member.user.tag}.`);
     } catch (error) {
-        logger.error(`No se pudieron añadir los roles automáticos a ${member.user.tag}:`, error);
+        console.error(`No se pudieron añadir los roles automáticos a ${member.user.tag}:`, error);
     }
 
     // --- Mensaje de Bienvenida ---
@@ -280,7 +294,7 @@ client.on('guildMemberAdd', async member => {
     try {
         const welcomeChannel = await member.guild.channels.fetch(welcomeChannelId);
         if (!welcomeChannel || !welcomeChannel.isTextBased()) {
-            logger.warn(`[Welcome Msg] Canal de bienvenida no encontrado o no es de texto.`);
+            console.log(`[Welcome Msg] Canal de bienvenida no encontrado o no es de texto.`);
             return;
         }
 
@@ -293,9 +307,9 @@ client.on('guildMemberAdd', async member => {
             .setTimestamp();
 
         await welcomeChannel.send({ embeds: [welcomeEmbed] });
-        logger.info(`Mensaje de bienvenida enviado para ${member.user.tag}.`);
+        console.log(`Mensaje de bienvenida enviado para ${member.user.tag}.`);
     } catch (error) {
-        logger.error(`No se pudo enviar el mensaje de bienvenida:`, error);
+        console.error(`No se pudo enviar el mensaje de bienvenida:`, error);
     }
 });
 
