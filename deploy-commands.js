@@ -11,7 +11,12 @@ const commandFolders = fs.readdirSync(foldersPath);
 for (const folder of commandFolders) {
 	// Coge todos los archivos de comandos de la carpeta de comandos
 	const commandsPath = path.join(foldersPath, folder);
-	const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+	const commandFiles = fs.readdirSync(commandsPath).filter(file => {
+        if (file.endsWith('Utils.js')) return false;
+        if (file.endsWith('_legacy.js')) return false;
+        if (['division.js', 'equipo.js', 'notificaciones.js'].includes(file)) return false;
+        return file.endsWith('.js');
+    });
 	// Coge la propiedad data de cada SlashCommandBuilder para el despliegue
 	for (const file of commandFiles) {
 		const filePath = path.join(commandsPath, file);
