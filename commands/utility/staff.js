@@ -1,9 +1,9 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require("discord.js");
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('staff')
-        .setDescription('Muestra el staff actual de Eclipse Studios.'),
+        .setName("staff")
+        .setDescription("Muestra el staff actual de Eclipse Studios."),
     async execute(interaction) {
         const staffList = `
 🌑 **Equipo Oficial de Eclipse Studios**
@@ -13,7 +13,7 @@ module.exports = {
  <@731592242275418133> (berzzerker_)
 
 🔨 **Admin General**
-- por rellenar -
+<@746561490768756928> (Alex CAC)
 
 🔧 **Moderación**
 - por rellenar -
