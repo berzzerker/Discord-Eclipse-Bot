@@ -1,5 +1,5 @@
 const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
-const { TICKET_LOG_CHANNEL_ID } = require('../commands/tickets/ticket.js');
+const { TICKET_LOG_CHANNEL_ID } = require('../config.js');
 
 /**
  * Genera una transcripción de texto a partir de los mensajes de un canal.

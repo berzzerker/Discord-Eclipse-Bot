@@ -64,60 +64,12 @@ client.once('ready', () => {
 });
 
 
-// --- LÓGICA DE CIERRE DE TICKET ---
-async function startTicketClosure(interaction) {
-    const { channel, member, user: closerUser } = interaction;
 
-    if (channel.parentId !== TICKET_CATEGORY_ID) {
-        return interaction.reply({ content: '❌ Este comando solo puede usarse en un canal de ticket.', ephemeral: true });
-    }
-    if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-        return interaction.reply({ content: '❌ No tienes permisos para cerrar este ticket.', ephemeral: true });
-    }
-    if (client.closingTickets.has(channel.id)) {
-        return interaction.reply({ content: 'Este ticket ya está en proceso de cierre.', ephemeral: true });
-    }
-
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId('ticket_close_cancel')
-            .setLabel('Cancelar Cierre')
-            .setStyle(ButtonStyle.Secondary)
-    );
-
-    const closeMsg = await channel.send({ 
-        content: `⚠️ Ticket marcado para cierre por ${interaction.user}. Este canal se eliminará en 10 segundos...`,
-        components: [row]
-    });
-
-    const timeoutId = setTimeout(async () => {
-        client.closingTickets.delete(channel.id);
-        
-        // --- LOGGING Y TRANSCRIPCIÓN ---
-        await logTicketClosure(client, channel, closerUser);
-
-        const topic = channel.topic;
-        if (topic && topic.includes('Ticket de')) {
-            const userIdMatch = topic.match(/\((\d{17,19})\)/);
-            if (userIdMatch && userIdMatch[1]) {
-                const userId = userIdMatch[1];
-                client.openTickets.delete(userId);
-                logger.info(`[Ticket System] Usuario ${userId} eliminado de la lista de tickets abiertos.`);
-            }
-        }
-        
-        await channel.delete('Cierre de ticket completado.');
-
-    }, 10000); // 10 segundos
-
-    client.closingTickets.set(channel.id, { timeoutId, closeMsgId: closeMsg.id });
-    await interaction.reply({ content: '¡El proceso de cierre ha comenzado!', ephemeral: true });
-}
 
 
 // --- MANEJADOR DE INTERACCIONES ---
 client.on('interactionCreate', async interaction => {
-    const { user, channel, member } = interaction;
+    const { user, channel, member, client } = interaction;
 
     // Maneja Comandos de Barra
     if (interaction.isChatInputCommand()) {
@@ -140,7 +92,12 @@ client.on('interactionCreate', async interaction => {
         try {
             const customId = interaction.customId;
 
-            if (customId.startsWith('ticket_open_')) {
+            if (customId.startsWith('ticket_')) {
+                const command = client.commands.get('ticket');
+                if (command && command.handleButton) {
+                    await command.handleButton(interaction, client);
+                }
+            } else if (customId.startsWith('ticket_open_')) {
                 if (client.openTickets.has(user.id)) return interaction.reply({ content: '❌ Ya tienes un ticket abierto.', ephemeral: true });
                 if (client.ticketCooldowns.has(user.id)) return interaction.reply({ content: '⏳ Debes esperar un poco antes de abrir otro ticket.', ephemeral: true });
 
@@ -159,16 +116,6 @@ client.on('interactionCreate', async interaction => {
                         setTimeout(() => client.ticketCooldowns.delete(user.id), 120000);
                         await interaction.editReply({ content: `✅ ¡Tu ticket ha sido creado en ${newChannel}!` });
                     }
-                }
-            } else if (customId === 'ticket_close_start') {
-                await startTicketClosure(interaction);
-            } else if (customId === 'ticket_close_cancel') {
-                const closingInfo = client.closingTickets.get(channel.id);
-                if (closingInfo) {
-                    clearTimeout(closingInfo.timeoutId);
-                    client.closingTickets.delete(channel.id);
-                    await channel.messages.delete(closingInfo.closeMsgId).catch(error => logger.error('Error eliminando mensaje de cierre de ticket', error));
-                    await interaction.reply({ content: '✅ Cierre de ticket cancelado.', ephemeral: true });
                 }
             } else if (customId === 'ticket_claim') {
                  if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {

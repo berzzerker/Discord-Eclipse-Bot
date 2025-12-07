@@ -5,5 +5,6 @@ module.exports = {
     MAX_ACTIVE_SUGGESTIONS: 3,
 
     // --- Ticket System ---
+    TICKET_LOG_CHANNEL_ID: '1445853625334108222', // Canal para logs de tickets
     TICKET_CATEGORY_ID: '1444272323351023636', // Example ID, replace with your actual category ID
 };
