@@ -20,14 +20,14 @@ const { TICKET_CATEGORY_ID } = require("./commands/tickets/ticket.js");
 
 const express = require("express");
 const app = express();
-const port = 3000;
+const port = 5000;
 
 app.get("/", (req, res) => {
     res.send("Bot de Eclipse Studios está activo! ⚡");
 });
 
-app.listen(port, () => {
-    console.log("Servidor web escuchando en el puerto 3000");
+app.listen(port, "0.0.0.0", () => {
+    console.log("Servidor web escuchando en el puerto 5000");
 });
 
 // --- Módulos de Roles ---
