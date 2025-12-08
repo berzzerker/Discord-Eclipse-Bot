@@ -17,6 +17,7 @@ function getRulesEmbed() {
         "",
         "**📩 Sistema de tickets**",
         "- Los tickets son una herramienta en el server para hacer canales nuevos para lo que su tipo de ticket respecta, ya sean entrevistas o ayuda del staff, puedes abrir solo 1 ticket cada 10 minutos y puede haber solo 1 ticket creado por usuario a la vez, la mayoría de la información de los tickets puede ser documentada y guardada para su posterior revisión, ya sean entrevistas o casos en donde ayudamos con algún problema en el server.",
+        "",
         "**⚖️ Cumplimiento y Moderación**",
         "- Además de nuestras reglas, debes cumplir con los Términos de Servicio de Discord y las Directrices de la Comunidad.",
         `- Las decisiones del equipo de Staff son finales. Si tienes alguna duda o problema, contacta a un miembro del Staff (<@&${STAFF_ROLE_ID}>).`,
@@ -27,7 +28,7 @@ function getRulesEmbed() {
 
     const rulesEmbed = new EmbedBuilder()
         .setColor(0x1a1a1a) // Color oscuro para Eclipse Studios
-        .setTitle("# 📜 Reglamento de Eclipse Studios")
+        .setTitle("📜 Reglamento de Eclipse Studios")
         .setDescription(
             `¡Bienvenido! Para mantener la armonía en nuestro Estudio y Comunidad, te pedimos que sigas estas simples reglas. Su incumplimiento podría llevar a consecuencias inevitables.\n\n` +
                 rulesDescription,
