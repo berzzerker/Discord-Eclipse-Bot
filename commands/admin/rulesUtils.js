@@ -1,7 +1,7 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder } = require("discord.js");
 
 // DEBES REEMPLAZAR ESTE ID CON EL ID REAL DE TU ROL DE STAFF
-const STAFF_ROLE_ID = '1444386198121349311';
+const STAFF_ROLE_ID = "1444386198121349311";
 
 function getRulesEmbed() {
     const rulesDescription = [
@@ -22,22 +22,24 @@ function getRulesEmbed() {
         `- Las decisiones del equipo de Staff son finales. Si tienes alguna duda o problema, contacta a un miembro del Staff (<@&${STAFF_ROLE_ID}>).`,
         "",
         "**💎 ¡Disfruta tu Estancia!**",
-        "- Participa, comparte tus ideas y disfruta de la comunidad. 🌠"
-    ].join('\n');
+        "- Participa, comparte tus ideas y disfruta de la comunidad. 🌠",
+    ].join("\n");
 
     const rulesEmbed = new EmbedBuilder()
         .setColor(0x1a1a1a) // Color oscuro para Eclipse Studios
-        .setTitle('# 📜 Reglamento de Eclipse Studios')
+        .setTitle("# 📜 Reglamento de Eclipse Studios")
         .setDescription(
             `¡Bienvenido! Para mantener la armonía en nuestro Estudio y Comunidad, te pedimos que sigas estas simples reglas. Su incumplimiento podría llevar a consecuencias inevitables.\n\n` +
-            rulesDescription
+                rulesDescription,
         )
-        .setFooter({ text: 'Al permanecer en este servidor, aceptas cumplir con estas reglas. Gracias por hacer de Eclipse Studios un lugar increíble.' })
+        .setFooter({
+            text: "Al permanecer en este servidor, aceptas cumplir con estas reglas. Gracias por hacer de Eclipse Studios un lugar increíble.",
+        })
         .setTimestamp();
 
     return rulesEmbed;
 }
 
 module.exports = {
-    getRulesEmbed
+    getRulesEmbed,
 };
