@@ -229,6 +229,21 @@ client.on("interactionCreate", async (interaction) => {
             }
         }
     }
+    // Maneja Autocompletado (NUEVO)
+    else if (interaction.isAutocomplete()) {
+        const command = client.commands.get(interaction.commandName);
+
+        if (!command) {
+            console.error(`No se encontró comando para autocompletado: ${interaction.commandName}`);
+            return;
+        }
+
+        try {
+            await command.autocomplete(interaction);
+        } catch (error) {
+            console.error('Error en autocompletado:', error);
+        }
+    }
     // Maneja Botones
     else if (interaction.isButton()) {
         try {
